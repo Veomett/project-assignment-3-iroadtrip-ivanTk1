@@ -7,6 +7,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Scanner;
 import java.util.Set;
 
 public class IRoadTrip {
@@ -176,10 +177,40 @@ public class IRoadTrip {
         }
     }
 
-
+    public boolean checkCountry(String country1){
+        return false;
+    }
 
     public void acceptUserInput() {
-        // Replace with your code
+        Scanner scanner = new Scanner(System.in);
+        String country2;
+        String country1;
+        while(true){
+            System.out.print("Enter the name of the first country (type EXIT to quit):");
+            country1 = scanner.nextLine();
+            if(checkCountry(country1)){
+                break;
+            }else if(country1 == "EXIT"){
+                System.exit(0);
+            }else{
+                System.out.println("Invalid country name. Please enter a valid country name.");
+            }
+        }
+        while(true){
+            System.out.print("Enter the name of the second country (type EXIT to quit):");
+            country2 = scanner.nextLine();
+            if(checkCountry(country2)){
+                break;
+            }else if(country2 == "EXIT"){
+                System.exit(0);
+            }else{
+                System.out.println("Invalid country name. Please enter a valid country name.");
+            }
+        }
+        findPath(country1, country2);
+        for(int i = 0; i < listsize(getDistances()); i++){
+            
+        }
         System.out.println("IRoadTrip - skeleton");
     }
 
