@@ -1,25 +1,22 @@
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
-import java.sql.Connection;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Scanner;
-import java.util.Set;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.*;
+import java.util.Map.Entry;
 
 public class IRoadTrip {
 
-    private Map<String, Map<String, Integer>> countryBorders;
+    private Map<String, Set<String>> countryBorders;
     private Map<String, Map<String, Double>> countryDistances;
 
     private Map<String, Map<String, Integer>> countryGraph;
     private Set<String> visited;
 
+    private Map<String, String> countryEndDates;
 
-    public IRoadTrip(String[] args) {
+    public IRoadTrip(String[] args) throws ParseException {
         if (args.length != 3) {
             System.err.println("Invalid number of arguments. Usage: IRoadTrip borders.txt capdist.csv state_name.tsv");
             System.exit(1);
@@ -32,45 +29,74 @@ public class IRoadTrip {
             // Read capdist.csv
             countryDistances = readDistances(args[1]);
 
-            // Read state_name.tsv later
+            // Read state_name.tsv
+            countryEndDates = readStateName(args[2]);
 
         } catch (IOException e) {
             System.err.println("Error reading files: " + e.getMessage());
             System.exit(1);
         }
         countryGraph = createGraph();
-
     }
 
     private Map<String, Map<String, Integer>> createGraph() {
         Map<String, Map<String, Integer>> graph = new HashMap<>();
-
-        // Add vertices to the graph
-        for (String country : countryBorders.keySet()) {
+    
+        // Filter out countries that are not in countryEndDates
+        Set<String> validCountries = new HashSet<>(countryEndDates.keySet());
+        validCountries.retainAll(countryBorders.keySet());
+    
+        for (String country : validCountries) {
             graph.put(country, new HashMap<>());
         }
-
-        // Add edges with distances
-        for (String country : countryBorders.keySet()) {
-            Map<String, Integer> neighbors = countryBorders.get(country);
+    
+        for (Map.Entry<String, Set<String>> entry : countryBorders.entrySet()) {
+            String country = entry.getKey();
             Map<String, Integer> edges = graph.get(country);
-
-            for (String neighbor : neighbors.keySet()) {
-                int distance = neighbors.get(neighbor);
-                edges.put(neighbor, distance);
-
-                // If the graph is undirected, add the reverse edge
-                graph.get(neighbor).put(country, distance);
+    
+            for (String neighbor : entry.getValue()) {
+                // Use countryEndDates to get the corresponding full names
+                String countryFullName = getFullName(country);
+                String neighborFullName = getFullName(neighbor);
+    
+                // Check if distances are available in countryDistances
+                if (countryFullName != null && neighborFullName != null &&
+                    countryDistances.containsKey(countryFullName) && countryDistances.get(countryFullName).containsKey(neighborFullName)) {
+                    double distance = countryDistances.get(countryFullName).get(neighborFullName);
+                    edges.put(neighbor, (int) Math.round(distance));
+                }
             }
         }
-
+    
+        // Debugging output
+        // System.out.println("Constructed graph:");
+        // for (Map.Entry<String, Map<String, Integer>> entry : graph.entrySet()) {
+        //     String country = entry.getKey();
+        //     Map<String, Integer> neighbors = entry.getValue();
+    
+        //     System.out.print(country + " -> ");
+        //     for (Map.Entry<String, Integer> neighbor : neighbors.entrySet()) {
+        //         System.out.print(neighbor.getKey() + "(" + neighbor.getValue() + " km) ");
+        //     }
+        //     System.out.println();
+        // }
+    
         return graph;
     }
+    
+    private String getFullName(String countryCode) {
+        for (Map.Entry<String, String> entry : countryEndDates.entrySet()) {
+            if (entry.getValue().equalsIgnoreCase(countryCode)) {
+                return entry.getKey();
+            }
+        }
+        return null; // Handle not found
+    }
+    
+    
+    public static Map<String, Set<String>> readBorders(String filename) throws IOException {
+        Map<String, Set<String>> borders = new TreeMap<>();
 
-
-
-    private Map<String, Map<String, Integer>> readBorders(String filename) throws IOException {
-        Map<String, Map<String, Integer>> borders = new HashMap<>();
         try (BufferedReader br = new BufferedReader(new FileReader(filename))) {
             String line;
             while ((line = br.readLine()) != null) {
@@ -78,19 +104,29 @@ public class IRoadTrip {
                 if (parts.length == 2) {
                     String country = parts[0].trim();
                     String[] neighbors = parts[1].split(";");
-                    Map<String, Integer> neighborDistances = new HashMap<>();
+                    Set<String> borderingCountries = new TreeSet<>();  // Using TreeSet for automatic sorting
                     for (String neighbor : neighbors) {
-                        String[] neighborParts = neighbor.split("\\s+");
-                        if (neighborParts.length == 2) {
-                            String neighborCountry = neighborParts[0].trim();
-                            int distance = Integer.parseInt(neighborParts[1].trim());
-                            neighborDistances.put(neighborCountry, distance);
-                        }
+                        String neighborCountry = neighbor.trim().split("\\s+")[0]; // Extracting only the country name
+                        borderingCountries.add(neighborCountry);
                     }
-                    borders.put(country, neighborDistances);
+                    borders.put(country, borderingCountries);
                 }
             }
         }
+
+        // Debugging output
+        System.out.println("Read borders:");
+        for (Map.Entry<String, Set<String>> entry : borders.entrySet()) {
+            String country = entry.getKey();
+            Set<String> borderingCountries = entry.getValue();
+            System.out.print(country + ": ");
+            StringJoiner joiner = new StringJoiner(",");
+            for (String neighbor : borderingCountries) {
+                joiner.add(neighbor);
+            }
+            System.out.println(joiner.toString());
+        }
+
         return borders;
     }
 
@@ -117,8 +153,42 @@ public class IRoadTrip {
         return distances;
     }
 
+    public static Map<String, String> readStateName(String filename) throws IOException, ParseException {
+        Map<String, String> countries = new HashMap<>();
+        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
 
-    public int getDistance (String country1, String country2) {
+        try (BufferedReader br = new BufferedReader(new FileReader(filename))) {
+            String line;
+            while ((line = br.readLine()) != null) {
+                String[] parts = line.split("\t");
+                if (parts.length == 6) {
+                    String countryFullName = parts[2].trim();
+                    String countryAbbreviation = parts[1].trim();
+                    Date endDate;
+                    try {
+                        endDate = dateFormat.parse(parts[5].trim());
+                    } catch (ParseException e) {
+                        throw new RuntimeException("Error parsing date", e);
+                    }
+
+                    // Only store countries with the last date of 2020-12-31
+                    if (endDate.equals(dateFormat.parse("2020-12-31"))) {
+                        countries.put(countryFullName, countryAbbreviation);
+                    }
+                }
+            }
+        }
+        return countries;
+    }
+    private Date parseDate(String dateString) {
+        try {
+            return new SimpleDateFormat("yyyy-MM-dd").parse(dateString);
+        } catch (ParseException e) {
+            throw new IllegalArgumentException("Error parsing date: " + dateString, e);
+        }
+    }
+
+    public int getDistance(String country1, String country2) {
         if (countryDistances.containsKey(country1) && countryDistances.get(country1).containsKey(country2)) {
             return (int) Math.round(countryDistances.get(country1).get(country2));
         } else {
@@ -126,38 +196,44 @@ public class IRoadTrip {
         }
     }
 
-
     public PathInfo findPath(String startCountry, String endCountry) {
         visited = new HashSet<>();
         List<String> path = new ArrayList<>();
         List<Integer> distances = new ArrayList<>();
-
-        // Use DFS to find the path and distances
+    
         dfs(startCountry, endCountry, path, distances);
-
+    
+        System.out.println("Visited nodes: " + visited);  // Debugging statement
+    
         return new PathInfo(path, distances);
     }
+    
 
     private void dfs(String currentCountry, String destination, List<String> path, List<Integer> distances) {
+        System.out.println("Visiting: " + currentCountry);  // Debugging statement
         visited.add(currentCountry);
         path.add(currentCountry);
-
+    
         if (currentCountry.equals(destination)) {
+            System.out.println("Reached destination: " + currentCountry);  // Debugging statement
             return;
         }
-
+    
         for (Map.Entry<String, Integer> neighbor : countryGraph.get(currentCountry).entrySet()) {
             if (!visited.contains(neighbor.getKey())) {
-                distances.add(neighbor.getValue());  // Add the distance to the list
+                distances.add(neighbor.getValue());
                 dfs(neighbor.getKey(), destination, path, distances);
             }
         }
-
-        if (!path.get(path.size() - 1).equals(destination)) {
+    
+        // Check if the path and distances lists are not empty before removing elements
+        if (!path.isEmpty() && !distances.isEmpty() && !path.get(path.size() - 1).equals(destination)) {
             path.remove(path.size() - 1);
             distances.remove(distances.size() - 1);
         }
     }
+    
+        
 
     public static class PathInfo {
         private List<String> path;
@@ -177,49 +253,79 @@ public class IRoadTrip {
         }
     }
 
-    public boolean checkCountry(String country1){
-        return false;
+    public boolean checkCountry(String country) {
+        return countryGraph.containsKey(country);
     }
+    
 
     public void acceptUserInput() {
         Scanner scanner = new Scanner(System.in);
-        String country2;
         String country1;
-        while(true){
-            System.out.print("Enter the name of the first country (type EXIT to quit):");
+        String country2;
+    
+        while (true) {
+            System.out.print("Enter the name of the first country (type EXIT to quit): ");
             country1 = scanner.nextLine();
-            if(checkCountry(country1)){
+            if (checkCountry(country1)) {
                 break;
-            }else if(country1 == "EXIT"){
+            } else if (country1.equalsIgnoreCase("EXIT")) {
                 System.exit(0);
-            }else{
+            } else {
                 System.out.println("Invalid country name. Please enter a valid country name.");
             }
         }
-        while(true){
-            System.out.print("Enter the name of the second country (type EXIT to quit):");
+    
+        while (true) {
+            System.out.print("Enter the name of the second country (type EXIT to quit): ");
             country2 = scanner.nextLine();
-            if(checkCountry(country2)){
+            if (checkCountry(country2)) {
                 break;
-            }else if(country2 == "EXIT"){
+            } else if (country2.equalsIgnoreCase("EXIT")) {
                 System.exit(0);
-            }else{
+            } else {
                 System.out.println("Invalid country name. Please enter a valid country name.");
             }
         }
-        findPath(country1, country2);
-        for(int i = 0; i < listsize(getDistances()); i++){
-            
+    
+        PathInfo pathInfo = findPath(country1, country2);
+    
+        List<String> path = pathInfo.getPath();
+    
+        if (path.isEmpty()) {
+            System.out.println("No valid path found between " + country1 + " and " + country2 + ".");
+        } else {
+            System.out.println("Route from " + country1 + " to " + country2 + ":");
+    
+            List<Integer> distances = pathInfo.getDistances();
+    
+            for (int i = 0; i < path.size() - 1; i++) {
+                System.out.println("* " + path.get(i) + " --> " + path.get(i + 1) + " (" + distances.get(i) + " km.)");
+            }
         }
-        System.out.println("IRoadTrip - skeleton");
     }
+    
+    public void printGraph() {
+        for (Map.Entry<String, Map<String, Integer>> entry : countryGraph.entrySet()) {
+            String country = entry.getKey();
+            Map<String, Integer> neighbors = entry.getValue();
+    
+            System.out.print(country + " -> ");
+            for (Map.Entry<String, Integer> neighbor : neighbors.entrySet()) {
+                System.out.print(neighbor.getKey() + "(" + neighbor.getValue() + " km) ");
+            }
+            System.out.println();
+        }
+    }
+    
 
-
-    public static void main(String[] args) {
+    public static void main(String[] args) throws ParseException {
         IRoadTrip a3 = new IRoadTrip(args);
+    
+        // debugging test
 
+        a3.printGraph();
+    
         a3.acceptUserInput();
     }
-
+    
 }
-
