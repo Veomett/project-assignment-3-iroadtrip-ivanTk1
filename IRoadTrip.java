@@ -58,13 +58,19 @@ public class IRoadTrip {
                 // Use countryEndDates to get the corresponding full names
                 String countryFullName = getFullName(country);
                 String neighborFullName = getFullName(neighbor);
-    
-                // Check if distances are available in countryDistances
-                if (countryFullName != null && neighborFullName != null &&
-                    countryDistances.containsKey(countryFullName) && countryDistances.get(countryFullName).containsKey(neighborFullName)) {
-                    double distance = countryDistances.get(countryFullName).get(neighborFullName);
-                    edges.put(neighbor, (int) Math.round(distance));
+             //   System.out.println("TEST");
+
+                String countryIDA = getIDA(country);
+                String neighborIDA = getIDA(neighbor);
+                System.out.println(country + " " + countryIDA); //keeps returning null why??
+                if (countryIDA != null && neighborIDA != null &&
+                    countryDistances.containsKey(countryIDA) && 
+                    countryDistances.get(countryIDA).containsKey(neighborIDA)) {
+                    double distance = countryDistances.get(countryIDA).get(neighborIDA);
+                    edges.put(neighbor, (int) Math.round(distance));     
+                    System.out.println("TEST2");
                 }
+
             }
         }
     
@@ -82,6 +88,20 @@ public class IRoadTrip {
         // }
     
         return graph;
+    }
+    
+    private String getIDA(String countryFullName) {
+        for (Map.Entry<String, String> entry : countryEndDates.entrySet()) {
+         //   System.out.println("Checking: " + entry.getKey());  // Use getKey() to get the full name
+         //   System.out.println("Input: " + countryFullName);
+
+            if (entry.getKey().equalsIgnoreCase(countryFullName)) {
+                System.out.println("Test");
+                return entry.getValue();
+            }
+        }
+        // System.out.println("No match found for: " + countryFullName);
+        return null; // Handle not found
     }
     
     private String getFullName(String countryCode) {
@@ -143,34 +163,61 @@ public class IRoadTrip {
                     String country2 = parts[3].trim();
                     double kmdist = Double.parseDouble(parts[4].trim());
                     double midist = Double.parseDouble(parts[5].trim());
-
+    
                     // Add distances for both directions (country1 to country2 and vice versa)
                     distances.computeIfAbsent(country1, k -> new HashMap<>()).put(country2, kmdist);
                     distances.computeIfAbsent(country2, k -> new HashMap<>()).put(country1, kmdist);
+    
+                    // Print for debugging
+                  //  System.out.println("Added distance between " + country1 + " and " + country2 + ": " + kmdist);
                 }
             }
         }
+        // Print for debugging
+        // System.out.println("Read distances:");
+        // for (Map.Entry<String, Map<String, Double>> entry : distances.entrySet()) {
+        //     String country = entry.getKey();
+        //     Map<String, Double> neighborDistances = entry.getValue();
+        //     System.out.print(country + " -> ");
+        //     for (Map.Entry<String, Double> neighbor : neighborDistances.entrySet()) {
+        //         System.out.print(neighbor.getKey() + "(" + neighbor.getValue() + " km) ");
+        //     }
+        //     System.out.println();
+        // }
         return distances;
     }
+    
 
     public static Map<String, String> readStateName(String filename) throws IOException, ParseException {
         Map<String, String> countries = new HashMap<>();
         SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
-
+    
         try (BufferedReader br = new BufferedReader(new FileReader(filename))) {
             String line;
+            // Print for debugging
+            System.out.println("Read state names:");
+            br.readLine();
             while ((line = br.readLine()) != null) {
                 String[] parts = line.split("\t");
-                if (parts.length == 6) {
+                if (parts.length == 5) {
+                   // System.out.println("test");
+
                     String countryFullName = parts[2].trim();
                     String countryAbbreviation = parts[1].trim();
                     Date endDate;
+                   // System.out.println("test2");
+
                     try {
-                        endDate = dateFormat.parse(parts[5].trim());
+                        endDate = dateFormat.parse(parts[4].trim());
                     } catch (ParseException e) {
+                        e.printStackTrace(); // Print the stack trace for debugging
                         throw new RuntimeException("Error parsing date", e);
                     }
-
+                    
+    
+                    // Print for debugging
+                    //System.out.println("Read entry: " + countryFullName + " -> " + countryAbbreviation);
+    
                     // Only store countries with the last date of 2020-12-31
                     if (endDate.equals(dateFormat.parse("2020-12-31"))) {
                         countries.put(countryFullName, countryAbbreviation);
@@ -180,6 +227,8 @@ public class IRoadTrip {
         }
         return countries;
     }
+    
+
     private Date parseDate(String dateString) {
         try {
             return new SimpleDateFormat("yyyy-MM-dd").parse(dateString);
