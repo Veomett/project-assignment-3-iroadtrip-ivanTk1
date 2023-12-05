@@ -42,7 +42,6 @@ public class IRoadTrip {
     private Map<String, Map<String, Integer>> createGraph() {
         Map<String, Map<String, Integer>> graph = new HashMap<>();
     
-        // Filter out countries that are not in countryEndDates
         Set<String> validCountries = new HashSet<>(countryEndDates.keySet());
         validCountries.retainAll(countryBorders.keySet());
     
@@ -54,55 +53,49 @@ public class IRoadTrip {
             String country = entry.getKey();
             Map<String, Integer> edges = graph.get(country);
     
+            if (edges == null) {
+                //System.out.println("DEBUG: No entry for country " + country + " in graph.");
+                graph.put(country, new HashMap<>());  // Add a single-vertex entry
+                continue;
+                    }
+    
             for (String neighbor : entry.getValue()) {
-                // Use countryEndDates to get the corresponding full names
-                String countryFullName = getFullName(country);
-                String neighborFullName = getFullName(neighbor);
-             //   System.out.println("TEST");
-
                 String countryIDA = getIDA(country);
                 String neighborIDA = getIDA(neighbor);
-                System.out.println(country + " " + countryIDA); //keeps returning null why??
+    
                 if (countryIDA != null && neighborIDA != null &&
-                    countryDistances.containsKey(countryIDA) && 
-                    countryDistances.get(countryIDA).containsKey(neighborIDA)) {
+                        countryDistances.containsKey(countryIDA) &&
+                        countryDistances.get(countryIDA).containsKey(neighborIDA)) {
                     double distance = countryDistances.get(countryIDA).get(neighborIDA);
-                    edges.put(neighbor, (int) Math.round(distance));     
-                    System.out.println("TEST2");
+                    edges.put(neighbor, (int) Math.round(distance));
+                } else {
+                   // System.out.println("DEBUG: Missing distance information for " + country + " to " + neighbor +
+                  //          ". Skipping this edge.");
                 }
-
             }
         }
-    
-        // Debugging output
-        // System.out.println("Constructed graph:");
-        // for (Map.Entry<String, Map<String, Integer>> entry : graph.entrySet()) {
-        //     String country = entry.getKey();
-        //     Map<String, Integer> neighbors = entry.getValue();
-    
-        //     System.out.print(country + " -> ");
-        //     for (Map.Entry<String, Integer> neighbor : neighbors.entrySet()) {
-        //         System.out.print(neighbor.getKey() + "(" + neighbor.getValue() + " km) ");
-        //     }
-        //     System.out.println();
-        // }
     
         return graph;
     }
     
+    
     private String getIDA(String countryFullName) {
         for (Map.Entry<String, String> entry : countryEndDates.entrySet()) {
-         //   System.out.println("Checking: " + entry.getKey());  // Use getKey() to get the full name
-         //   System.out.println("Input: " + countryFullName);
-
+            // System.out.println("Checking: " + entry.getKey());  // Use getKey() to get the full name
+            // System.out.println("Input: " + countryFullName);
+    
             if (entry.getKey().equalsIgnoreCase(countryFullName)) {
-                System.out.println("Test");
+               // System.out.println("Test");
                 return entry.getValue();
             }
         }
-        // System.out.println("No match found for: " + countryFullName);
+    
+        // Print the country for which no match is found
+      //  System.out.println("No match found for: " + countryFullName);
+    
         return null; // Handle not found
     }
+    
     
     private String getFullName(String countryCode) {
         for (Map.Entry<String, String> entry : countryEndDates.entrySet()) {
@@ -115,8 +108,23 @@ public class IRoadTrip {
     
     
     public static Map<String, Set<String>> readBorders(String filename) throws IOException {
-        Map<String, Set<String>> borders = new TreeMap<>();
+        // Create a map for replacements
+        Map<String, String> replacementMap = new HashMap<>();
+        replacementMap.put("US", "United States");
+        replacementMap.put("Macedonia", "North Macedonia");
+        replacementMap.put("Czech Republic", "Czechia");
+        replacementMap.put("The Gambia", "Gambia, The");
+        replacementMap.put("UK", "United Kingdom");
+        replacementMap.put("UAE", "United Arab Emirates");
+        replacementMap.put("Turkey (Turkiye)", "Turkey");
+        replacementMap.put("Burkina", "Burkina Faso");
+        replacementMap.put("Korea, North", "North Korea");
+        replacementMap.put("Korea, South", "South Korea");
 
+        // Add more replacements as needed
+    
+        Map<String, Set<String>> borders = new TreeMap<>();
+    
         try (BufferedReader br = new BufferedReader(new FileReader(filename))) {
             String line;
             while ((line = br.readLine()) != null) {
@@ -126,29 +134,40 @@ public class IRoadTrip {
                     String[] neighbors = parts[1].split(";");
                     Set<String> borderingCountries = new TreeSet<>();  // Using TreeSet for automatic sorting
                     for (String neighbor : neighbors) {
-                        String neighborCountry = neighbor.trim().split("\\s+")[0]; // Extracting only the country name
-                        borderingCountries.add(neighborCountry);
+                        // Check if replacement exists in the map, otherwise use the original neighbor
+                        String result = neighbor.replaceAll("[0-9,]|\\bkm\\b", "");
+        
+                        // Remove spaces from the beginning and end of the result
+                        result = result.trim();
+                      //  System.out.println("a" + result + "a");
+                    
+                        // Remove the last 2 letters, numbers, and commas, and trim spaces
+                    
+                        borderingCountries.add(result);
                     }
+                    
                     borders.put(country, borderingCountries);
                 }
             }
         }
-
+    
         // Debugging output
-        System.out.println("Read borders:");
-        for (Map.Entry<String, Set<String>> entry : borders.entrySet()) {
-            String country = entry.getKey();
-            Set<String> borderingCountries = entry.getValue();
-            System.out.print(country + ": ");
-            StringJoiner joiner = new StringJoiner(",");
-            for (String neighbor : borderingCountries) {
-                joiner.add(neighbor);
-            }
-            System.out.println(joiner.toString());
-        }
-
+        // System.out.println("Read borders:");
+        // for (Map.Entry<String, Set<String>> entry : borders.entrySet()) {
+        //     String country = entry.getKey();
+        //     Set<String> borderingCountries = entry.getValue();
+        //     System.out.print(country + ": ");
+        //     StringJoiner joiner = new StringJoiner(",");
+        //     for (String neighbor : borderingCountries) {
+        //         joiner.add(neighbor);
+        //     }
+        //     System.out.println(joiner.toString());
+        // }
+    
         return borders;
     }
+    
+
 
     private Map<String, Map<String, Double>> readDistances(String filename) throws IOException {
         Map<String, Map<String, Double>> distances = new HashMap<>();
@@ -174,46 +193,99 @@ public class IRoadTrip {
             }
         }
         // Print for debugging
-        // System.out.println("Read distances:");
-        // for (Map.Entry<String, Map<String, Double>> entry : distances.entrySet()) {
-        //     String country = entry.getKey();
-        //     Map<String, Double> neighborDistances = entry.getValue();
-        //     System.out.print(country + " -> ");
-        //     for (Map.Entry<String, Double> neighbor : neighborDistances.entrySet()) {
-        //         System.out.print(neighbor.getKey() + "(" + neighbor.getValue() + " km) ");
-        //     }
-        //     System.out.println();
-        // }
+        //  System.out.println("Read distances:");
+        //  for (Map.Entry<String, Map<String, Double>> entry : distances.entrySet()) {
+        //      String country = entry.getKey();
+        //      Map<String, Double> neighborDistances = entry.getValue();
+        //      System.out.print(country + " -> ");
+        //      for (Map.Entry<String, Double> neighbor : neighborDistances.entrySet()) {
+        //          System.out.print(neighbor.getKey() + "(" + neighbor.getValue() + " km) ");
+        //      }
+        //      System.out.println();
+        //  }
         return distances;
     }
     
 
     public static Map<String, String> readStateName(String filename) throws IOException, ParseException {
         Map<String, String> countries = new HashMap<>();
+        Map<String, String> nameMapping = new HashMap<>();  // Add this line
+    
+        // Manually fill the nameMapping map
+        nameMapping.put("Zimbabwe (Rhodesia)", "Zimbabwe");
+        nameMapping.put("Tanzania/Tanganyika", "Tanzania");
+        nameMapping.put("Congo, Democratic Republic of (Zaire)", "Congo, Democratic Republic of the");
+        nameMapping.put("Yemen (Arab Republic of Yemen)", "Yemen");
+        nameMapping.put("Vietnam, Democratic Republic of", "Vietnam");
+        nameMapping.put("United States of America", "United States");
+        nameMapping.put("Kyrgyz Republic", "Kyrgyzstan");
+        nameMapping.put("Cambodia (Kampuchea)", "Cambodia");
+        nameMapping.put("Myanmar (Burma)", "Burma");
+        nameMapping.put("German Federal Republic", "Germany");
+        nameMapping.put("Italy/Sardinia", "Italy");
+        nameMapping.put("Russia (Soviet Union)", "Russia");
+        nameMapping.put("Belarus (Byelorussia)", "Belarus");
+        nameMapping.put("Tanzania/Tanganyika", "Tanzania");
+        nameMapping.put("Iran (Persia)", "Iran");
+        nameMapping.put("Turkey (Ottoman Empire)", "Turkey");
+        nameMapping.put("Burkina Faso (Upper Volta)", "Burkina");
+        nameMapping.put("East Timor", "Timor-Leste");
+        nameMapping.put("Surinam", "Suriname");
+        nameMapping.put("Sri Lanka (Ceylon)", "Sri");
+        nameMapping.put("Macedonia (Former Yugoslav Republic of)", "North Macedonia");
+        nameMapping.put("Czech Republic", "Czechia");
+        nameMapping.put("Bahamas, The", "Bahamas");
+        nameMapping.put("Bosnia and Herzegovina", "Bosnia-Herzegovina");
+        nameMapping.put("Congo, Democratic Republic of (Zaire)", "Congo, Democratic Republic of");
+        nameMapping.put("Congo", "Congo, Republic of the");
+        nameMapping.put("Swaziland", "Eswatini");
+        nameMapping.put("Denmark", "Denmark (Greenland)");
+        nameMapping.put("Korea, People's Republic of", "North Korea");
+        nameMapping.put("Korea, Republic of", "South Korea");
+        nameMapping.put("NO", "CAN");
+        nameMapping.put("NO", "CAN");
+        nameMapping.put("NO", "CAN");
+        nameMapping.put("NO", "CAN");
+        nameMapping.put("NO", "CAN");
+        nameMapping.put("NO", "CAN");
+        nameMapping.put("NO", "CAN");
+        nameMapping.put("NO", "CAN");
+        nameMapping.put("NO", "CAN");
+        nameMapping.put("NO", "CAN");
+        nameMapping.put("NO", "CAN");
+        nameMapping.put("NO", "CAN");
+
+        // Add more mappings as needed
+    
         SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
     
         try (BufferedReader br = new BufferedReader(new FileReader(filename))) {
             String line;
             // Print for debugging
-            System.out.println("Read state names:");
+          //  System.out.println("Read state names:");
             br.readLine();
             while ((line = br.readLine()) != null) {
                 String[] parts = line.split("\t");
                 if (parts.length == 5) {
-                   // System.out.println("test");
-
+                    // System.out.println("test");
+    
                     String countryFullName = parts[2].trim();
+    
                     String countryAbbreviation = parts[1].trim();
                     Date endDate;
-                   // System.out.println("test2");
-
+                    // System.out.println("test2");
+    
                     try {
                         endDate = dateFormat.parse(parts[4].trim());
                     } catch (ParseException e) {
                         e.printStackTrace(); // Print the stack trace for debugging
                         throw new RuntimeException("Error parsing date", e);
                     }
-                    
+    
+                    // Check if the country name needs to be updated
+                    if (nameMapping.containsKey(countryFullName)) {
+                        countryFullName = nameMapping.get(countryFullName);
+                    }
     
                     // Print for debugging
                     //System.out.println("Read entry: " + countryFullName + " -> " + countryAbbreviation);
@@ -228,15 +300,6 @@ public class IRoadTrip {
         return countries;
     }
     
-
-    private Date parseDate(String dateString) {
-        try {
-            return new SimpleDateFormat("yyyy-MM-dd").parse(dateString);
-        } catch (ParseException e) {
-            throw new IllegalArgumentException("Error parsing date: " + dateString, e);
-        }
-    }
-
     public int getDistance(String country1, String country2) {
         if (countryDistances.containsKey(country1) && countryDistances.get(country1).containsKey(country2)) {
             return (int) Math.round(countryDistances.get(country1).get(country2));
@@ -244,67 +307,66 @@ public class IRoadTrip {
             return -1;
         }
     }
-
     public PathInfo findPath(String startCountry, String endCountry) {
-        visited = new HashSet<>();
-        List<String> path = new ArrayList<>();
-        List<Integer> distances = new ArrayList<>();
-    
-        dfs(startCountry, endCountry, path, distances);
-    
-        System.out.println("Visited nodes: " + visited);  // Debugging statement
-    
-        return new PathInfo(path, distances);
-    }
-    
-
-    private void dfs(String currentCountry, String destination, List<String> path, List<Integer> distances) {
-        System.out.println("Visiting: " + currentCountry);  // Debugging statement
-        visited.add(currentCountry);
-        path.add(currentCountry);
-    
-        if (currentCountry.equals(destination)) {
-            System.out.println("Reached destination: " + currentCountry);  // Debugging statement
-            return;
+        if (!countryGraph.containsKey(startCountry) || !countryGraph.containsKey(endCountry)) {
+            System.out.println("Invalid input countries.");
+            return new PathInfo(new ArrayList<>(), new ArrayList<>());
         }
     
-        for (Map.Entry<String, Integer> neighbor : countryGraph.get(currentCountry).entrySet()) {
-            if (!visited.contains(neighbor.getKey())) {
-                distances.add(neighbor.getValue());
-                dfs(neighbor.getKey(), destination, path, distances);
+        // Dijkstra's algorithm
+        Map<String, Integer> distance = new HashMap<>();
+        Map<String, String> previous = new HashMap<>();
+        PriorityQueue<String> queue = new PriorityQueue<>(Comparator.comparingInt(distance::get));
+    
+        distance.put(startCountry, 0);
+        queue.add(startCountry);
+    
+        while (!queue.isEmpty()) {
+            String currentCountry = queue.poll();
+            System.out.println("Processing: " + currentCountry + ", Distance: " + distance.get(currentCountry));
+    
+            if (currentCountry.equals(endCountry)) {
+                System.out.println("Reached the destination: " + endCountry);
+                break; // Reached the destination
+            }
+    
+            // Null check added here
+            Map<String, Integer> neighbors = countryGraph.get(currentCountry);
+            if (neighbors == null) {
+                System.out.println("No neighbors for: " + currentCountry);
+                continue; // Skip if neighbors are null
+            }
+    
+            for (Map.Entry<String, Integer> neighbor : neighbors.entrySet()) {
+                String nextCountry = neighbor.getKey();
+                int newDist = distance.get(currentCountry) + neighbor.getValue();
+                System.out.println("Checking neighbor: " + nextCountry + ", Current Distance: " + distance.get(nextCountry));
+    
+                if (!distance.containsKey(nextCountry) || newDist < distance.get(nextCountry)) {
+                    // Update the distance to the neighboring country if the new distance is shorter
+                    distance.put(nextCountry, newDist);
+                    previous.put(nextCountry, currentCountry);
+                    queue.add(nextCountry);
+                    System.out.println("Updated distance for: " + nextCountry + ", New Distance: " + newDist);
+                }
             }
         }
     
-        // Check if the path and distances lists are not empty before removing elements
-        if (!path.isEmpty() && !distances.isEmpty() && !path.get(path.size() - 1).equals(destination)) {
-            path.remove(path.size() - 1);
-            distances.remove(distances.size() - 1);
+        // Reconstruct the path
+        List<String> path = new ArrayList<>();
+        List<Integer> distances = new ArrayList<>();
+        String current = endCountry;
+    
+        while (previous.containsKey(current)) {
+            path.add(0, current);
+            distances.add(0, countryGraph.get(previous.get(current)).get(current));
+            current = previous.get(current);
         }
+    
+        path.add(0, startCountry);
+        return new PathInfo(path, distances);
     }
     
-        
-
-    public static class PathInfo {
-        private List<String> path;
-        private List<Integer> distances;
-
-        public PathInfo(List<String> path, List<Integer> distances) {
-            this.path = path;
-            this.distances = distances;
-        }
-
-        public List<String> getPath() {
-            return path;
-        }
-
-        public List<Integer> getDistances() {
-            return distances;
-        }
-    }
-
-    public boolean checkCountry(String country) {
-        return countryGraph.containsKey(country);
-    }
     
 
     public void acceptUserInput() {
@@ -315,7 +377,7 @@ public class IRoadTrip {
         while (true) {
             System.out.print("Enter the name of the first country (type EXIT to quit): ");
             country1 = scanner.nextLine();
-            if (checkCountry(country1)) {
+            if (isPresent(country1)) {
                 break;
             } else if (country1.equalsIgnoreCase("EXIT")) {
                 System.exit(0);
@@ -327,7 +389,7 @@ public class IRoadTrip {
         while (true) {
             System.out.print("Enter the name of the second country (type EXIT to quit): ");
             country2 = scanner.nextLine();
-            if (checkCountry(country2)) {
+            if (isPresent(country1)) {
                 break;
             } else if (country2.equalsIgnoreCase("EXIT")) {
                 System.exit(0);
@@ -339,8 +401,10 @@ public class IRoadTrip {
         PathInfo pathInfo = findPath(country1, country2);
     
         List<String> path = pathInfo.getPath();
-    
-        if (path.isEmpty()) {
+        
+       // System.out.println(path);
+
+        if (path.size() < 2) {
             System.out.println("No valid path found between " + country1 + " and " + country2 + ".");
         } else {
             System.out.println("Route from " + country1 + " to " + country2 + ":");
@@ -352,6 +416,30 @@ public class IRoadTrip {
             }
         }
     }
+
+    private boolean isPresent(String country) {
+        return countryGraph.containsKey(country);
+    }
+    
+
+    public class PathInfo {
+        private List<String> path;
+        private List<Integer> distances;
+    
+        public PathInfo(List<String> path, List<Integer> distances) {
+            this.path = path;
+            this.distances = distances;
+        }
+    
+        public List<String> getPath() {
+            return path;
+        }
+    
+        public List<Integer> getDistances() {
+            return distances;
+        }
+    }
+    
     
     public void printGraph() {
         for (Map.Entry<String, Map<String, Integer>> entry : countryGraph.entrySet()) {
