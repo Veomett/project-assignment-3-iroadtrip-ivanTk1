@@ -120,8 +120,12 @@ public class IRoadTrip {
         replacementMap.put("Burkina", "Burkina Faso");
         replacementMap.put("Korea, North", "North Korea");
         replacementMap.put("Korea, South", "South Korea");
+        replacementMap.put("Morocco (Ceuta)", "Morocco");
+        replacementMap.put("Russia (Kaliningrad)", "Russia");
+        replacementMap.put("Russia (Kaliningrad Oblast)", "Russia");
+        replacementMap.put("Spain (Ceuta)", "Spain");
+        replacementMap.put("Spain (Ceuta)", "Spain");
 
-        // Add more replacements as needed
     
         Map<String, Set<String>> borders = new TreeMap<>();
     
@@ -131,24 +135,35 @@ public class IRoadTrip {
                 String[] parts = line.split("=");
                 if (parts.length == 2) {
                     String country = parts[0].trim();
+                    if (replacementMap.containsKey(country)) {
+                            country = replacementMap.get(country);
+                        }
                     String[] neighbors = parts[1].split(";");
                     Set<String> borderingCountries = new TreeSet<>();  // Using TreeSet for automatic sorting
                     for (String neighbor : neighbors) {
                         // Check if replacement exists in the map, otherwise use the original neighbor
                         String result = neighbor.replaceAll("[0-9,]|\\bkm\\b", "");
-        
+            
                         // Remove spaces from the beginning and end of the result
                         result = result.trim();
-                      //  System.out.println("a" + result + "a");
                     
+                        // Add replacements from the map
+                       // System.out.println(result);
+                       // System.out.println(replacementMap.containsKey(result));
+                        if (replacementMap.containsKey(result)) {
+                            result = replacementMap.get(result);
+                            //System.out.println(result);
+                        }
+                        
                         // Remove the last 2 letters, numbers, and commas, and trim spaces
-                    
+                        
                         borderingCountries.add(result);
                     }
                     
                     borders.put(country, borderingCountries);
                 }
             }
+            
         }
     
         // Debugging output
@@ -323,31 +338,31 @@ public class IRoadTrip {
     
         while (!queue.isEmpty()) {
             String currentCountry = queue.poll();
-            System.out.println("Processing: " + currentCountry + ", Distance: " + distance.get(currentCountry));
+           // System.out.println("Processing: " + currentCountry + ", Distance: " + distance.get(currentCountry));
     
             if (currentCountry.equals(endCountry)) {
-                System.out.println("Reached the destination: " + endCountry);
+              //  System.out.println("Reached the destination: " + endCountry);
                 break; // Reached the destination
             }
     
             // Null check added here
             Map<String, Integer> neighbors = countryGraph.get(currentCountry);
             if (neighbors == null) {
-                System.out.println("No neighbors for: " + currentCountry);
+               // System.out.println("No neighbors for: " + currentCountry);
                 continue; // Skip if neighbors are null
             }
     
             for (Map.Entry<String, Integer> neighbor : neighbors.entrySet()) {
                 String nextCountry = neighbor.getKey();
                 int newDist = distance.get(currentCountry) + neighbor.getValue();
-                System.out.println("Checking neighbor: " + nextCountry + ", Current Distance: " + distance.get(nextCountry));
+               // System.out.println("Checking neighbor: " + nextCountry + ", Current Distance: " + distance.get(nextCountry));
     
                 if (!distance.containsKey(nextCountry) || newDist < distance.get(nextCountry)) {
                     // Update the distance to the neighboring country if the new distance is shorter
                     distance.put(nextCountry, newDist);
                     previous.put(nextCountry, currentCountry);
                     queue.add(nextCountry);
-                    System.out.println("Updated distance for: " + nextCountry + ", New Distance: " + newDist);
+                   // System.out.println("Updated distance for: " + nextCountry + ", New Distance: " + newDist);
                 }
             }
         }
@@ -371,50 +386,52 @@ public class IRoadTrip {
 
     public void acceptUserInput() {
         Scanner scanner = new Scanner(System.in);
-        String country1;
-        String country2;
-    
-        while (true) {
-            System.out.print("Enter the name of the first country (type EXIT to quit): ");
-            country1 = scanner.nextLine();
-            if (isPresent(country1)) {
-                break;
-            } else if (country1.equalsIgnoreCase("EXIT")) {
-                System.exit(0);
-            } else {
-                System.out.println("Invalid country name. Please enter a valid country name.");
-            }
-        }
-    
-        while (true) {
-            System.out.print("Enter the name of the second country (type EXIT to quit): ");
-            country2 = scanner.nextLine();
-            if (isPresent(country1)) {
-                break;
-            } else if (country2.equalsIgnoreCase("EXIT")) {
-                System.exit(0);
-            } else {
-                System.out.println("Invalid country name. Please enter a valid country name.");
-            }
-        }
-    
-        PathInfo pathInfo = findPath(country1, country2);
-    
-        List<String> path = pathInfo.getPath();
+        while(true){
+            String country1;
+            String country2;
         
-       // System.out.println(path);
-
-        if (path.size() < 2) {
-            System.out.println("No valid path found between " + country1 + " and " + country2 + ".");
-        } else {
-            System.out.println("Route from " + country1 + " to " + country2 + ":");
-    
-            List<Integer> distances = pathInfo.getDistances();
-    
-            for (int i = 0; i < path.size() - 1; i++) {
-                System.out.println("* " + path.get(i) + " --> " + path.get(i + 1) + " (" + distances.get(i) + " km.)");
+            while (true) {
+                System.out.print("Enter the name of the first country (type EXIT to quit): ");
+                country1 = scanner.nextLine();
+                if (isPresent(country1)) {
+                    break;
+                } else if (country1.equalsIgnoreCase("EXIT")) {
+                    System.exit(0);
+                } else {
+                    System.out.println("Invalid country name. Please enter a valid country name.");
+                }
             }
-        }
+        
+            while (true) {
+                System.out.print("Enter the name of the second country (type EXIT to quit): ");
+                country2 = scanner.nextLine();
+                if (isPresent(country2)) {
+                    break;
+                } else if (country2.equalsIgnoreCase("EXIT")) {
+                    System.exit(0);
+                } else {
+                    System.out.println("Invalid country name. Please enter a valid country name.");
+                }
+            }
+        
+            PathInfo pathInfo = findPath(country1, country2);
+        
+            List<String> path = pathInfo.getPath();
+            
+        // System.out.println(path);
+
+            if (path.size() < 2) {
+                System.out.println("No valid path found between " + country1 + " and " + country2 + ".");
+            } else {
+                System.out.println("Route from " + country1 + " to " + country2 + ":");
+        
+                List<Integer> distances = pathInfo.getDistances();
+        
+                for (int i = 0; i < path.size() - 1; i++) {
+                    System.out.println("* " + path.get(i) + " --> " + path.get(i + 1) + " (" + distances.get(i) + " km.)");
+                }
+            }
+    }
     }
 
     private boolean isPresent(String country) {
@@ -460,7 +477,7 @@ public class IRoadTrip {
     
         // debugging test
 
-        a3.printGraph();
+       // a3.printGraph();
     
         a3.acceptUserInput();
     }
